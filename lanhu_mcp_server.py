@@ -63,6 +63,19 @@ from fastmcp import FastMCP
 from fastmcp.utilities.types import Image
 from playwright.async_api import async_playwright
 
+# FairyGUI 转换器（可选模块，不存在时禁用相关 Tool）
+try:
+    from fairygui_converter import (
+        convert_lanhu_to_fairygui_project,
+        convert_sketch_to_fairygui_project,
+        merge_into_fairygui_project,
+        merge_sketch_into_fairygui_project,
+        read_fairygui_project,
+    )
+    _FAIRYGUI_AVAILABLE = True
+except ImportError:
+    _FAIRYGUI_AVAILABLE = False
+
 # 创建FastMCP服务器
 mcp = FastMCP("Lanhu Axure Extractor")
 
@@ -6768,6 +6781,444 @@ async def lanhu_get_members(
         "total": len(collaborators),
         "collaborators": collaborators
     }
+
+
+@mcp.tool()
+async def lanhu_get_fairygui_project(
+        url: Annotated[str, "Lanhu URL WITHOUT docId (indicates UI design project). Example: https://lanhuapp.com/web/#/item/project/stage?tid=xxx&pid=xxx. Required param: pid. tid is optional. Supports detailDetach format: ?pid=xxx&image_id=xxx"],
+        design_names: Annotated[Union[str, List[str]], "Design name(s) or index number(s). 'all' = all designs. Number (e.g. 6) = the 6th item in lanhu_get_designs list (by 'index' field). Exact name (e.g. '6_friend页_挂件墙') = match by full name. Get names/index from lanhu_get_designs first."],
+        ctx: Context = None
+) -> List[Union[str, Image]]:
+    """
+    [FairyGUI Project Export] Convert Lanhu UI design to FairyGUI 6.x editor project (Laya 3.x)
+
+    USE THIS WHEN user says:
+        FairyGUI工程, 生成FairyGUI, 导出FairyGUI, fairygui项目, fairy工程,
+        转FairyGUI, UI转fairygui, 设计稿转fairy, laya fairygui
+
+    DO NOT USE for: 需求文档/PRD/Axure (use lanhu_get_pages),
+        普通HTML代码 (use lanhu_get_ai_analyze_design_result),
+        切图下载 (use lanhu_get_design_slices)
+
+    WORKFLOW:
+        1. Call lanhu_get_designs to get design list
+        2. Call this tool with target design name(s) or 'all'
+        3. Tool generates the FairyGUI project files locally
+        4. Download res/ images using the provided mapping table
+        5. Open the .fairy file in FairyGUI 6.1.3 editor
+
+    GENERATED PROJECT STRUCTURE:
+        {output_dir}/{design_name}/
+        ├── {design_name}.fairy           # Project entry (type=laya3)
+        ├── UI/
+        │   ├── package.xml               # Package descriptor with resource list
+        │   ├── {design_name}.xml         # Main component XML
+        │   └── res/                      # Image assets (download required)
+        └── settings/
+            ├── BuildTargets.xml          # Laya 3.x publish config
+            └── GlobalRelations.xml
+
+    Returns:
+        Summary text with generated file paths and resource download table,
+        followed by design image previews for visual verification.
+    """
+    if not _FAIRYGUI_AVAILABLE:
+        return ["❌ fairygui_converter 模块未找到，请确认 fairygui_converter.py 与主服务器文件在同一目录。"]
+
+    extractor = LanhuExtractor()
+    try:
+        user_name, user_role = get_user_info(ctx) if ctx else ('匿名', '未知')
+        project_id = get_project_id_from_url(url)
+        if project_id:
+            store = MessageStore(project_id)
+            store.record_collaborator(user_name, user_role)
+
+        params = extractor.parse_url(url)
+
+        # ── 1. 获取设计图列表 ──
+        designs_data = await _get_designs_internal(extractor, url)
+        if designs_data['status'] != 'success':
+            return [f"❌ Failed to get design list: {designs_data.get('message', 'Unknown error')}"]
+
+        designs = designs_data['designs']
+
+        # ── 2. 匹配目标设计图（复用 lanhu_get_ai_analyze_design_result 的匹配逻辑）──
+        if isinstance(design_names, str) and design_names.lower() == 'all':
+            target_designs = designs
+        else:
+            if isinstance(design_names, str):
+                design_names = [design_names]
+            seen_ids = set()
+            target_designs = []
+            image_id_from_url = params.get('doc_id')
+
+            for name in (design_names or []):
+                name_str = str(name).strip()
+                if name_str.isdigit():
+                    n = int(name_str)
+                    for d in designs:
+                        if d.get('index') == n and d['id'] not in seen_ids:
+                            target_designs.append(d)
+                            seen_ids.add(d['id'])
+                            break
+                else:
+                    for d in designs:
+                        if d['name'] == name_str and d['id'] not in seen_ids:
+                            target_designs.append(d)
+                            seen_ids.add(d['id'])
+                            break
+
+            if not target_designs and image_id_from_url:
+                for d in designs:
+                    if d.get('id') == image_id_from_url:
+                        target_designs.append(d)
+                        break
+
+        if not target_designs:
+            available = [d['name'] for d in designs]
+            return ["⚠️ No matching design found\n\nAvailable designs:\n"
+                    + "\n".join(f"  • {n}" for n in available)]
+
+        # ── 3. 输出根目录 ──
+        base_output_dir = DATA_DIR / 'fairygui_projects' / (params.get('project_id') or 'unknown')
+
+        image_results = []
+        convert_results = []
+
+        for design in target_designs:
+            safe_design_name = design['name'].replace('/', '_')
+            design_output_dir = base_output_dir / safe_design_name
+
+            # ── 4. 下载原始设计图预览 ──
+            img_path = None
+            try:
+                img_url = design['url'].split('?')[0]
+                img_dir = DATA_DIR / 'lanhu_designs' / (params.get('project_id') or 'unknown')
+                img_dir.mkdir(parents=True, exist_ok=True)
+                img_filepath = img_dir / f'{safe_design_name}.png'
+                response = await extractor.client.get(img_url)
+                response.raise_for_status()
+                img_filepath.write_bytes(response.content)
+                img_path = str(img_filepath)
+                image_results.append({'success': True, 'design_name': design['name'], 'path': img_path})
+            except Exception as e:
+                image_results.append({'success': False, 'design_name': design['name'], 'error': str(e)})
+
+            # ── 5. 获取 Schema JSON，转换为 FairyGUI 工程 ──
+            converted = False
+            e_schema = None
+            try:
+                schema_json = await extractor.get_design_schema_json(
+                    design['id'],
+                    params.get('team_id'),
+                    params['project_id']
+                )
+                # 获取 HTML 转换产生的 image_url_mapping（复用 _localize_image_urls 逻辑）
+                from fairygui_converter import convert_lanhu_to_fairygui_project as _do_convert
+                html_code = convert_lanhu_to_html(schema_json)
+                _, img_mapping = _localize_image_urls(html_code, design['name'])
+
+                result = _do_convert(
+                    json_data=schema_json,
+                    design_name=design['name'],
+                    output_dir=design_output_dir,
+                    image_url_mapping=img_mapping,
+                )
+                convert_results.append({
+                    'design_name': design['name'],
+                    'source': 'schema',
+                    **result,
+                })
+                converted = True
+            except Exception as _e_schema:
+                e_schema = _e_schema
+                if DEBUG:
+                    print(f"[FairyGUI] Schema path failed for {design['name']}: {e_schema}")
+
+            # ── 6. Fallback：Sketch JSON ──
+            if not converted:
+                try:
+                    sketch_json = await extractor.get_sketch_json(
+                        design['id'],
+                        params.get('team_id'),
+                        params['project_id']
+                    )
+                    from fairygui_converter import convert_sketch_to_fairygui_project as _do_convert_sketch
+                    result = _do_convert_sketch(
+                        sketch_data=sketch_json,
+                        design_name=design['name'],
+                        output_dir=design_output_dir,
+                        design_img_url=design['url'],
+                    )
+                    convert_results.append({
+                        'design_name': design['name'],
+                        'source': 'sketch',
+                        **result,
+                    })
+                except Exception as e_sketch:
+                    convert_results.append({
+                        'design_name': design['name'],
+                        'source': 'failed',
+                        'status': 'error',
+                        'error': f'Schema: {e_schema}; Sketch: {e_sketch}',
+                    })
+
+        # ── 7. 组装返回摘要 ──
+        ok_count = len([r for r in convert_results if r.get('status') == 'success'])
+        total_count = len(convert_results)
+
+        summary = f"🎮 FairyGUI Project Export — {designs_data['project_name']}\n"
+        summary += f"✓ {ok_count}/{total_count} designs converted to FairyGUI 6.x (Laya 3.x)\n"
+        summary += f"📁 Output base: {base_output_dir}\n\n"
+        summary += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+
+        for idx, r in enumerate(convert_results, 1):
+            summary += f"📐 设计图 {idx}：{r['design_name']}\n"
+            if r.get('status') == 'success':
+                summary += f"   来源模式: {'Lanhu Schema (精确)' if r.get('source') == 'schema' else 'Sketch JSON (标注模式)'}\n"
+                summary += f"   组件尺寸: {r.get('component_size', 'N/A')}\n"
+                summary += f"   图片资源: {r.get('image_count', 0)} 个\n\n"
+                summary += "   📂 已生成文件：\n"
+                for fp in r.get('files_created', []):
+                    summary += f"     {fp}\n"
+
+                dl_map = r.get('res_download_map', {})
+                if dl_map:
+                    summary += f"\n   📥 图片资源下载映射（共 {len(dl_map)} 个，请下载到对应本地路径）：\n"
+                    for local_abs, remote_url in dl_map.items():
+                        summary += f"     {local_abs}\n     ← {remote_url}\n"
+                    summary += f"\n   下载命令示例（PowerShell）：\n"
+                    for local_abs, remote_url in list(dl_map.items())[:3]:
+                        summary += f'     Invoke-WebRequest -Uri "{remote_url}" -OutFile "{local_abs}"\n'
+                    if len(dl_map) > 3:
+                        summary += f"     ... （共 {len(dl_map)} 个，请按映射表全部下载）\n"
+            else:
+                summary += f"   ❌ 转换失败: {r.get('error', 'Unknown error')}\n"
+            summary += "\n"
+
+        summary += "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+        summary += "📖 使用步骤：\n"
+        summary += "  1. 按上方下载映射表，将所有图片资源下载到 UI/res/ 目录\n"
+        summary += "  2. 打开 FairyGUI 6.1.3 编辑器 → 文件 → 打开工程 → 选择 .fairy 文件\n"
+        summary += "  3. 在编辑器中检查组件显示效果，可对位置/文字/颜色精细调整\n"
+        summary += "  4. 编辑器菜单：发布 → 选择 Laya3 → 点击发布，生成 Laya 3.x 可用资源\n"
+        summary += "  ⚠️ 注意：FairyGUI 不原生支持 CSS border-radius，圆角需通过九宫格切图实现\n"
+
+        content = [summary]
+        for r in image_results:
+            if r.get('success') and r.get('path'):
+                content.append(Image(path=r['path']))
+
+        return content
+    finally:
+        await extractor.close()
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# 蓝湖设计稿合并到现有 FairyGUI 工程
+# ──────────────────────────────────────────────────────────────────────────────
+
+@mcp.tool()
+async def lanhu_merge_fairygui_project(
+    url: Annotated[str, "蓝湖设计稿链接，格式：https://lanhu.oss-cn-beijing.aliyuncs.com/... 或项目页链接"],
+    design_names: Annotated[
+        Union[str, List[str]],
+        "要导入的设计页面名称或序号（从1开始），支持单个或列表。"
+        "示例：'首页' 或 ['首页','登录页'] 或 ['1','2']",
+    ],
+    project_dir: Annotated[
+        str,
+        "现有 FairyGUI 工程的根目录路径（包含 .fairy 文件的目录）。"
+        "示例：'D:/MyGame/fairygui_project'",
+    ],
+    ctx: Context = None,
+) -> List[Union[str, Image]]:
+    """
+    将蓝湖设计页面作为新 FairyGUI 组件合并进现有工程。
+
+    适用场景：
+    - 现有 FairyGUI 工程中追加新页面/组件
+    - 更新现有 FairyGUI 工程中的某个组件
+    - 导入到现有FairyGUI工程 / 合并FairyGUI / 追加组件 / 更新FairyGUI组件
+
+    与 lanhu_get_fairygui_project 的区别：
+    - 本工具在已有工程上合并，不重新生成 .fairy 和 settings/ 文件
+    - 同名组件自动覆盖（update 模式），新名称组件自动追加（add 模式）
+    - 现有图片资源不会被删除，新图片按路径去重后追加
+
+    返回：
+    - 合并结果文本描述（含操作模式、更新/新增文件路径、图片下载指引）
+    - 设计稿预览图
+    """
+    if not _FAIRYGUI_AVAILABLE:
+        return ["❌ FairyGUI 转换模块不可用，请确保 fairygui_converter.py 存在于工程目录。"]
+
+    extractor = LanhuExtractor()
+    try:
+        user_name, user_role = get_user_info(ctx) if ctx else ('匿名', '未知')
+        project_id = get_project_id_from_url(url)
+        if project_id:
+            store = MessageStore(project_id)
+            store.record_collaborator(user_name, user_role)
+
+        params = extractor.parse_url(url)
+
+        # 规范化 design_names 为列表
+        if isinstance(design_names, str):
+            design_names_list = [n.strip() for n in design_names.split(",") if n.strip()]
+        else:
+            design_names_list = [str(n).strip() for n in design_names if str(n).strip()]
+
+        # 获取全部设计页面
+        designs_data = await _get_designs_internal(extractor, url)
+        if designs_data.get('status') != 'success':
+            return [f"❌ 无法获取设计页面列表：{designs_data.get('message', '未知错误')}"]
+
+        designs = designs_data['designs']
+
+        # 匹配目标页面
+        seen_ids: set = set()
+        target_designs = []
+        for dn in design_names_list:
+            if dn.isdigit():
+                idx = int(dn) - 1
+                if 0 <= idx < len(designs) and designs[idx]['id'] not in seen_ids:
+                    target_designs.append(designs[idx])
+                    seen_ids.add(designs[idx]['id'])
+            else:
+                for d in designs:
+                    if d['name'] == dn and d['id'] not in seen_ids:
+                        target_designs.append(d)
+                        seen_ids.add(d['id'])
+                        break
+
+        if not target_designs:
+            names_str = "\n".join(
+                f"  {i+1}. {d.get('name','未命名')}" for i, d in enumerate(designs[:20])
+            )
+            return [
+                f"❌ 未找到匹配的设计页面：{design_names_list}\n\n"
+                f"当前工程包含 {len(designs)} 个页面，前20个：\n{names_str}"
+            ]
+
+        # 读取现有工程信息
+        proj_info = read_fairygui_project(project_dir)
+        if not proj_info["valid"]:
+            return [
+                f"❌ 未找到有效的 FairyGUI 工程：{project_dir}\n"
+                "请确认该目录下存在 .fairy 文件。"
+            ]
+
+        output_parts: List[Union[str, Image]] = []
+        summary_lines = [
+            f"# FairyGUI 合并结果",
+            f"",
+            f"**工程**：{proj_info['project_name']}  (`{project_dir}`)",
+            f"**现有组件**：{len(proj_info['components'])} 个  "
+            f"**现有图片**：{len(proj_info['images'])} 个",
+            f"",
+        ]
+
+        for design in target_designs:
+            design_name = design.get("name", "未命名")
+            safe_design_name = design_name.replace("/", "_")
+            design_img_url = design.get("url", "")
+
+            summary_lines.append(f"## {design_name}")
+
+            # 下载预览图
+            img_path = None
+            try:
+                img_url_raw = design_img_url.split("?")[0]
+                img_dir = DATA_DIR / "lanhu_designs" / (params.get("project_id") or "unknown")
+                img_dir.mkdir(parents=True, exist_ok=True)
+                img_filepath = img_dir / f"{safe_design_name}_merge_prev.png"
+                response = await extractor.client.get(img_url_raw)
+                response.raise_for_status()
+                img_filepath.write_bytes(response.content)
+                img_path = str(img_filepath)
+            except Exception:
+                pass
+
+            # 尝试 Lanhu Schema JSON → merge
+            merge_result = None
+            e_schema = None
+            try:
+                schema_json = await extractor.get_design_schema_json(
+                    design["id"],
+                    params.get("team_id"),
+                    params["project_id"],
+                )
+                # 使用与 lanhu_get_fairygui_project 相同的 img_url_mapping 获取方式
+                html_code = convert_lanhu_to_html(schema_json)
+                _, img_mapping = _localize_image_urls(html_code, design_name)
+                merge_result = merge_into_fairygui_project(
+                    schema_json, design_name, project_dir, img_mapping
+                )
+            except Exception as _e:
+                e_schema = _e
+
+            # 回退：Sketch JSON
+            if not merge_result or merge_result.get("status") != "success":
+                try:
+                    sketch_json = await extractor.get_sketch_json(
+                        design["id"],
+                        params.get("team_id"),
+                        params["project_id"],
+                    )
+                    merge_result = merge_sketch_into_fairygui_project(
+                        sketch_json, design_name, project_dir, design_img_url
+                    )
+                except Exception as e_sketch:
+                    merge_result = {
+                        "status": "error",
+                        "error": f"Schema: {e_schema}; Sketch: {e_sketch}",
+                    }
+
+            if not merge_result or merge_result.get("status") != "success":
+                err = (merge_result or {}).get("error", "未知错误")
+                summary_lines.append(f"- ❌ 合并失败：{err}")
+                summary_lines.append("")
+                continue
+
+            mode_label = "🔄 更新" if merge_result.get("merge_mode") == "update" else "✅ 新增"
+            summary_lines.append(f"- **操作模式**：{mode_label}组件 `{merge_result['component_name']}`")
+
+            files_created = merge_result.get("files_created", [])
+            files_updated = merge_result.get("files_updated", [])
+            if files_created:
+                summary_lines.append("- **新建文件**：")
+                for fp in files_created:
+                    summary_lines.append(f"  - `{fp}`")
+            if files_updated:
+                summary_lines.append("- **更新文件**：")
+                for fp in files_updated:
+                    summary_lines.append(f"  - `{fp}`")
+
+            res_map = merge_result.get("res_download_map", {})
+            img_count = merge_result.get("image_count", 0)
+            summary_lines.append(f"- **图片资源**：{img_count} 个")
+            if res_map:
+                need_download = {k: v for k, v in res_map.items() if v}
+                if need_download:
+                    summary_lines.append(f"- **待下载图片**（共 {len(need_download)} 个）：")
+                    for local, remote in list(need_download.items())[:8]:
+                        summary_lines.append(f"  - `{local}`")
+                        if remote:
+                            summary_lines.append(f"    下载地址：{remote}")
+                    if len(need_download) > 8:
+                        summary_lines.append(f"  - ...（共 {len(need_download)} 个，已省略）")
+
+            summary_lines.append("")
+
+            if img_path:
+                output_parts.append(Image(path=img_path))
+
+        output_parts.insert(0, "\n".join(summary_lines))
+        return output_parts
+
+    finally:
+        await extractor.close()
 
 
 if __name__ == "__main__":

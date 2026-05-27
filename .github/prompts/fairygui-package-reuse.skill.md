@@ -122,8 +122,8 @@ description: "**LOOKUP SKILL** — 在 FairyGUI 转换时查找和引用现有 P
 
 若上述速查表中找不到所需组件：
 
-1. 读取 `memories/repo/fairygui-packages/INDEX.md` —— 获取所有包的快速检索表
-2. 读取 `memories/repo/fairygui-packages/{PackageName}.md` —— 获取具体包的组件清单
+1. 读取 `data/memories/repo/fairygui-packages/INDEX.md` —— 获取所有包的快速检索表
+2. 读取 `data/memories/repo/fairygui-packages/{PackageName}.md` —— 获取具体包的组件清单
 3. 直接读取 `data/uiProject/assets/{PackageName}/package.xml` —— 获取精确 ID
 
 > 🚨 **禁止猜测 ID**：若记忆文件和 package.xml 中都找不到某 ID，则该组件不可引用，必须新建。

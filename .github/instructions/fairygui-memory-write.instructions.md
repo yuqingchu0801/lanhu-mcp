@@ -1,11 +1,11 @@
 ---
-applyTo: "memories/repo/fairygui-packages/**"
+applyTo: "data/memories/repo/fairygui-packages/**"
 ---
 
 # FairyGUI Package 记忆写入格式规范
 
-每个 Package 的记忆文件路径为 `/memories/repo/fairygui-packages/{PackageName}.md`。  
-包汇总索引文件路径为 `/memories/repo/fairygui-packages/INDEX.md`。
+每个 Package 的记忆文件路径为 `/data/memories/repo/fairygui-packages/{PackageName}.md`。  
+包汇总索引文件路径为 `/data/memories/repo/fairygui-packages/INDEX.md`。
 
 ---
 

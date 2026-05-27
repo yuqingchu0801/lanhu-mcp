@@ -93,7 +93,7 @@ result = mcp_lanhu_lanhu_get_fairygui_project(
 | 通用弹窗框架 | CommonFrame4 | 查 Common.md | `new/Frame/CommonFrame4.xml` |
 | 确认弹窗 | AlertView | 查 Common.md | `AlertView.xml` |
 
-> 🚨 表中未列的组件，**必须读取** `memories/repo/fairygui-packages/Common.md` 获取精确 ID，严禁猜测。
+> 🚨 表中未列的组件，**必须读取** `data/memories/repo/fairygui-packages/Common.md` 获取精确 ID，严禁猜测。
 
 ---
 

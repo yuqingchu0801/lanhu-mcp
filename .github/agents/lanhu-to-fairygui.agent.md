@@ -60,7 +60,7 @@ tools:
 **目的**：确保复用信息最新，避免引用错误 ID。
 
 ```
-操作：检查 /memories/repo/fairygui-packages/INDEX.md 是否存在且更新时间 ≤ 7 天
+操作：检查 /data/memories/repo/fairygui-packages/INDEX.md 是否存在且更新时间 ≤ 7 天
 ```
 
 **决策树**：
@@ -68,7 +68,7 @@ tools:
 ┌─ INDEX.md 不存在或超过 7 天未更新？
 │   └─ 运行：python scripts/fairygui_package_analyzer.py
 │           --assets data/uiProject/assets
-│           --output memories/repo/fairygui-packages
+│           --output data/memories/repo/fairygui-packages
 │
 └─ 记忆有效 → 读取 Common.md 获取复用组件清单，直接进入阶段三
 ```
@@ -106,7 +106,7 @@ slices = mcp_lanhu_lanhu_get_design_slices(design_id="{id}")
 | 主确认按钮 ~282×81 | BCommonConfirmBtn | `klomijo62q` | `new/Button/BCommonConfirmBtn.xml` |
 | 次取消按钮 | BCommonCanelBtn | `klomijo62o` | `new/Button/BCommonCanelBtn.xml` |
 
-> 其他 ID 必须从 `memories/repo/fairygui-packages/Common.md` 中读取，**禁止猜测**。
+> 其他 ID 必须从 `data/memories/repo/fairygui-packages/Common.md` 中读取，**禁止猜测**。
 
 ### 3.3 执行转换
 

@@ -14,7 +14,7 @@
 | FairyGUI 转换器 | `fairygui_converter.py` | Lanhu Schema / Sketch JSON → FairyGUI XML |
 | FairyGUI 工程资产 | `data/uiProject/assets/` | 现有 FairyGUI Package（Common, Hero, MainUI 等） |
 | 设计规范文档 | `data/lanhu-rule/lanhu-Rule.md` | 蓝湖图层命名规范（治理检查依据） |
-| Package 记忆文件 | `memories/repo/fairygui-packages/` | 各 Package 可复用组件清单 |
+| Package 记忆文件 | `data/memories/repo/fairygui-packages/` | 各 Package 可复用组件清单 |
 
 ---
 
@@ -72,7 +72,7 @@
 | 文件 | 适用范围 | 核心内容 |
 |------|---------|---------|
 | `fairygui-package-scan.instructions.md` | `package.xml`, `*.xml` | 如何解析 FairyGUI 包文件结构 |
-| `fairygui-memory-write.instructions.md` | `memories/repo/fairygui-packages/**` | 记忆文件的书写格式规范 |
+| `fairygui-memory-write.instructions.md` | `data/memories/repo/fairygui-packages/**` | 记忆文件的书写格式规范 |
 | `fairygui-reuse-in-conversion.instructions.md` | `fairygui_converter.py`, `lanhu_mcp_server.py` | 转换时优先复用已有 Package 组件 |
 | `fairygui-asset-validator.instructions.md` | `**/uiProject/assets/**/*.xml` | 生成资源的校验规则（7章完整规范）|
 | `lanhu-design-governance.instructions.md` | `lanhu_mcp_server.py`, 治理 Agent | 蓝湖命名规范校验规则（R-001~R-006）|

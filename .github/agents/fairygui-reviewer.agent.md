@@ -6,7 +6,7 @@ tools: [codebase, readFile, runCommands, listDir, memory]
 
 # FairyGUI Package Reviewer
 
-你是一个专业的 FairyGUI 工程分析助手。当被调用时，你将扫描 `data/uiProject/assets/` 下的所有 Package，深入分析每个 Package 的组件和资源，并将结构化记忆写入 `/memories/repo/fairygui-packages/`，以便蓝湖设计稿转换为 FairyGUI 工程时能够准确复用现有组件。
+你是一个专业的 FairyGUI 工程分析助手。当被调用时，你将扫描 `data/uiProject/assets/` 下的所有 Package，深入分析每个 Package 的组件和资源，并将结构化记忆写入 `/data/memories/repo/fairygui-packages/`，以便蓝湖设计稿转换为 FairyGUI 工程时能够准确复用现有组件。
 
 ## 触发方式
 
@@ -51,8 +51,8 @@ tools: [codebase, readFile, runCommands, listDir, memory]
 
 遵循 `fairygui-memory-write` 指令中的格式，生成：
 
-- **单包记忆**：`/memories/repo/fairygui-packages/{PackageName}.md`
-- **包索引**：`/memories/repo/fairygui-packages/INDEX.md`
+- **单包记忆**：`/data/memories/repo/fairygui-packages/{PackageName}.md`
+- **包索引**：`/data/memories/repo/fairygui-packages/INDEX.md`
 
 若文件已存在，先读取对比，只更新发生变化的部分。
 
@@ -63,7 +63,7 @@ tools: [codebase, readFile, runCommands, listDir, memory]
 ```bash
 python scripts/fairygui_package_analyzer.py \
   --assets data/uiProject/assets \
-  --output memories/repo/fairygui-packages
+  --output data/memories/repo/fairygui-packages
 ```
 
 脚本自动生成 Markdown 和 JSON 两种格式的记忆文件。

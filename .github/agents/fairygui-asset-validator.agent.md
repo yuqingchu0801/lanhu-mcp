@@ -24,8 +24,8 @@ tools: [codebase, readFile, listDir, memory, runCommands]
 ### 步骤 0：加载规则和已知包记忆
 
 ```
-1. 读取 /memories/repo/fairygui-packages/INDEX.md（若存在）获取已知包 ID 映射
-2. 读取 /memories/repo/fairygui-packages/Common.md 获取 Common 包的可复用组件清单
+1. 读取 /data/memories/repo/fairygui-packages/INDEX.md（若存在）获取已知包 ID 映射
+2. 读取 /data/memories/repo/fairygui-packages/Common.md 获取 Common 包的可复用组件清单
    若以上文件不存在，先运行 FairyGUI Package Reviewer 生成记忆
 3. 加载 fairygui-asset-validator 指令中的所有校验规则
 ```
@@ -191,7 +191,7 @@ WARN 建议修复以提升可维护性。
 
 ```
 FairyGUI Package Reviewer（先运行）
-    ↓ 生成 /memories/repo/fairygui-packages/ 记忆文件
+    ↓ 生成 /data/memories/repo/fairygui-packages/ 记忆文件
 FairyGUI Asset Validator（本 Agent）
     ↓ 读取记忆 + 校验 → 生成报告
     ↓ （可选）调用自动修复

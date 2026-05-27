@@ -4,7 +4,7 @@ applyTo: "fairygui_converter.py, lanhu_mcp_server.py, **/fairygui/**/*.py"
 
 # FairyGUI 转换时的 Package 复用指引
 
-在将蓝湖（Lanhu）设计稿转换为 FairyGUI 工程时，**优先复用** `/memories/repo/fairygui-packages/` 中记录的现有 Package 组件，避免重复造轮子。
+在将蓝湖（Lanhu）设计稿转换为 FairyGUI 工程时，**优先复用** `/data/memories/repo/fairygui-packages/` 中记录的现有 Package 组件，避免重复造轮子。
 
 ---
 
@@ -12,7 +12,7 @@ applyTo: "fairygui_converter.py, lanhu_mcp_server.py, **/fairygui/**/*.py"
 
 ```
 1. 识别设计元素 → 判断是弹窗/按钮/遮罩层/进度条/红点/列表项等通用类型
-2. 加载 Package 记忆索引 → 读取 /memories/repo/fairygui-packages/INDEX.md
+2. 加载 Package 记忆索引 → 读取 /data/memories/repo/fairygui-packages/INDEX.md
 3. 定向查阅 → 根据元素类型，读取对应 Package 的 .md 记忆文件
 4. 获取精确引用信息 → 从记忆文件中取出 src ID 和 fileName
 5. 生成引用 XML → 用 src + fileName 格式替代重新生成
@@ -154,4 +154,4 @@ REUSE_MAP = {
 
 - 每次新增 Package 后，运行 `review package {Name}` 更新记忆文件
 - 每次修改 Common 包组件后，同步更新 INDEX.md 中的快速复用表
-- 在 `memories/repo/fairygui-packages/INDEX.md` 中保持最新的包 ID 映射
+- 在 `data/memories/repo/fairygui-packages/INDEX.md` 中保持最新的包 ID 映射
