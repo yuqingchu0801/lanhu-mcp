@@ -55,23 +55,30 @@ tools:
 
 ---
 
-## 阶段二：Package 记忆更新
+## 阶段二：Package 记忆检查（阻断门控）
 
-**目的**：确保复用信息最新，避免引用错误 ID。
+**目的**：确保复用信息存在且有效，避免引用错误 ID。
+
+**检查步骤（按序执行）**：
 
 ```
-操作：检查 /data/memories/repo/fairygui-packages/INDEX.md 是否存在且更新时间 ≤ 7 天
+步骤 1：检查磁盘文件是否存在
+  → data/memories/repo/fairygui-packages/INDEX.md
+  → data/memories/repo/fairygui-packages/Common.md
+
+步骤 2：决策树
+  ┌─ 任一文件不存在？
+  │   └─ 🚫 阻断 → 调用 FairyGUI Package Reviewer Agent:
+  │              「review fairygui packages」
+  │              等待其完成全量扫描并生成所有记忆文件后，再继续
+  │
+  └─ 两个文件均存在？
+      ├─ 检查 INDEX.md 更新时间是否超过 7 天
+      │   └─ 超过 7 天 → 重新运行 FairyGUI Package Reviewer 更新记忆
+      └─ 7 天内 → 读取 Common.md 获取复用组件清单，进入阶段三
 ```
 
-**决策树**：
-```
-┌─ INDEX.md 不存在或超过 7 天未更新？
-│   └─ 运行：python scripts/fairygui_package_analyzer.py
-│           --assets data/uiProject/assets
-│           --output data/memories/repo/fairygui-packages
-│
-└─ 记忆有效 → 读取 Common.md 获取复用组件清单，直接进入阶段三
-```
+> ⚠️ **严格要求**：在 `INDEX.md` 和 `Common.md` 均存在之前，**不得**进入阶段三。
 
 **关键记忆文件**：
 - `Common.md` — 全局通用组件（遮罩/按钮/红点/加载）
@@ -86,12 +93,39 @@ tools:
 ### 3.1 获取设计数据
 
 ```python
-# 调用 MCP 工具获取完整图层树
+# 调用 MCP 工具获取完整图层树（同时触发设计截图缓存）
 design_data = mcp_lanhu_lanhu_get_ai_analyze_design_result(
     design_id="{id}", mode="full"
 )
 slices = mcp_lanhu_lanhu_get_design_slices(design_id="{id}")
 ```
+
+### 3.1.5 下载切片资源（必须执行）
+
+根据 `slices.total_slices` 的值走不同分支：
+
+**分支 A：`total_slices > 0`（有切片）**
+
+遍历 `slices.slice_list`，将每个切片图下载到包的 `images/` 目录，并在 `package.xml` 中注册对应 `<image>` 资源：
+
+```
+ for each slice in slices.slice_list:
+   下载 slice.url → data/uiProject/assets/{Name}/images/{slice.name}.png
+   在 package.xml <resources> 中添加：
+   <image id="{新ID}" name="{slice.name}.png" path="/images/"/>
+```
+
+**分支 B：`total_slices = 0`（蓝湖无导出切片）**
+
+蓝湖设计稿未配置切片导出，执行以下兜底操作：
+1. 将设计稿概览截图从缓存复制到包的 `效果图/` 目录：
+   ```
+   复制 data/lanhu_designs/{pid}/{design_name}.png
+       → data/uiProject/assets/{Name}/效果图/{design_name}.png
+   ```
+   （缓存文件由 `get_ai_analyze_design_result` 调用时自动生成）
+2. **告知用户**：设计稿无切片导出，实际游戏素材图（如背景、Banner 等）需美术提供后手动放入 `images/` 目录，并在 `package.xml` 中补充注册。
+3. FairyGUI 编辑器打开后会自动将 `效果图/` 中的 PNG 注册到 `package.xml`，无需手动操作。
 
 ### 3.2 识别可复用组件
 
@@ -105,6 +139,7 @@ slices = mcp_lanhu_lanhu_get_design_slices(design_id="{id}")
 | 圆形红点角标 ≤30px | RedDot | `pxfbo4hc` | `reddot/RedDot.xml` |
 | 主确认按钮 ~282×81 | BCommonConfirmBtn | `klomijo62q` | `new/Button/BCommonConfirmBtn.xml` |
 | 次取消按钮 | BCommonCanelBtn | `klomijo62o` | `new/Button/BCommonCanelBtn.xml` |
+| 弹窗/界面关闭按钮（内置×图标） | CommonCloseButton | `z9gmijo62h` | `new/Button/CommonCloseButton.xml` |
 
 > 其他 ID 必须从 `data/memories/repo/fairygui-packages/Common.md` 中读取，**禁止猜测**。
 
@@ -126,16 +161,33 @@ merge_into_fairygui_project(design_data, '{Name}', 'data/uiProject/assets')
 生成目录结构：
 ```
 data/uiProject/assets/{DesignName}/
-├── package.xml          # 包描述符（含依赖声明 yez16kc6）
-├── {DesignName}.xml     # 主组件 XML
-└── res/                 # 切图资源（本地化后）
-    └── *.png
+├── package.xml          # 包描述符
+├── {DesignName}View.xml # 主组件 XML（exported="true"）
+├── images/              # 切图资源（本地化后，total_slices>0 时填充）
+│   └── *.png
+└── 效果图/              # 设计稿概览截图（total_slices=0 时的兜底）
+    └── {design_name}.png
 ```
 
 **必须检查**：
-- `package.xml` 的 `<publish>` 含 `dependencies="yez16kc6"` (Common 包 ID)
-- 所有 `fileName` 不含 `https://`
+- 所有 `fileName` 不含 `https://`（本地化完成）
 - 所有 `src` ID 可从 `package.xml` 或记忆文件中找到对应项
+- 若 `total_slices=0`：已告知用户补充美术切图
+
+### 3.5 创建 Package 记忆文件
+
+转换完成后，**必须**在工作区磁盘创建记忆文件（Copilot 虚拟存储同步）：
+
+```
+路径：data/memories/repo/fairygui-packages/{PackageName}.md
+```
+
+记忆文件需包含（参考 `fairygui-memory-write.instructions.md` 模板）：
+- 包 ID、资源路径、来源设计（含 pid）
+- 导出组件清单（id、尺寸、说明）
+- 图片资源表（id、文件名、九宫格参数、是否需美术补充）
+- 跨包依赖（Common 包哪些组件被引用）
+- 技术备注（如文字输入框语法等特殊注意点）
 
 ---
 

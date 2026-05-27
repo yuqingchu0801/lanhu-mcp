@@ -152,6 +152,15 @@ REUSE_MAP = {
 
 ## 记忆文件维护提醒
 
-- 每次新增 Package 后，运行 `review package {Name}` 更新记忆文件
+- 每次新增 Package 后，必须在工作区磁盘创建记忆文件：`data/memories/repo/fairygui-packages/{Name}.md`
 - 每次修改 Common 包组件后，同步更新 INDEX.md 中的快速复用表
 - 在 `data/memories/repo/fairygui-packages/INDEX.md` 中保持最新的包 ID 映射
+
+## 切片资源处理规则
+
+| `total_slices` | 操作 |
+|----------------|------|
+| `> 0` | 遍历 `slice_list`，将每个切片 URL 下载到 `images/`，并在 `package.xml` 中注册 `<image>` 资源 |
+| `= 0` | 将 `data/lanhu_designs/{pid}/{design_name}.png`（`get_ai_analyze_design_result` 的缓存）复制到包的 `效果图/` 目录；在 `package.xml` 中为 `images/` 下的图片仅保留占位注册，并告知用户实际素材需美术提供 |
+
+> `get_ai_analyze_design_result` 调用时会自动将设计概览截图缓存到 `data/lanhu_designs/{pid}/{design_name}.png`，即使 `total_slices=0` 也有截图可用。

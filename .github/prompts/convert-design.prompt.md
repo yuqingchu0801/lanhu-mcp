@@ -40,15 +40,23 @@ govern design ${input:designUrl}
 - 若仅有 `WARN` → 列出警告，询问用户是否继续
 - 若全部 `PASS` → 直接进入步骤 2
 
-### 步骤 2：扫描现有 Package 记忆
+### 步骤 2：检查 Package 记忆文件（阻断）
 
-调用 **FairyGUI Package Reviewer** 确保记忆文件是最新的：
+在转换前**必须确认**以下文件存在于磁盘：
 
-```
-review fairygui packages
-```
+- `data/memories/repo/fairygui-packages/INDEX.md`
+- `data/memories/repo/fairygui-packages/Common.md`
 
-重点检查 `data/memories/repo/fairygui-packages/Common.md` 和 `INDEX.md` 是否存在且有效。
+**决策**：
+- 任一文件**不存在** → **停止流程**，先调用 **FairyGUI Package Reviewer** Agent 执行全量包扫描：
+  ```
+  review fairygui packages
+  ```
+  等待其完成后，确认两个文件均已生成，再进入步骤 3。
+- 文件均存在但**超过 7 天未更新** → 重新运行 **FairyGUI Package Reviewer**，更新记忆后继续。
+- 文件存在且有效 → 读取 `Common.md` 获取复用组件清单，直接进入步骤 3。
+
+> ⚠️ 不得跳过此步骤，缺少记忆文件会导致转换时错误引用或遗漏 Common 包组件。
 
 ### 步骤 3：获取设计图层数据
 
@@ -64,7 +72,25 @@ review fairygui packages
 
 - 按照 `fairygui-reuse-in-conversion.instructions.md` 的复用规则，优先引用 Common 包组件
 - 生成目录：`data/uiProject/assets/{DesignName}/`
-- 同步下载切图资源到 `res/` 目录
+
+**切片资源处理**（必执行）：
+
+| 条件 | 操作 |
+|------|------|
+| `total_slices > 0` | 遍历 `slice_list`，将每个切片下载到 `images/`，在 `package.xml` 中注册 `<image>` 资源 |
+| `total_slices = 0` | 将设计稿概览截图从 `data/lanhu_designs/{pid}/{name}.png` 复制到 `效果图/`；告知用户实际素材需美术手动提供 |
+
+> `get_ai_analyze_design_result` 调用后会自动将设计截图缓存到 `data/lanhu_designs/{pid}/{design_name}.png`。
+
+### 步骤 4.5：创建 Package 记忆文件
+
+转换完成后，必须创建工作区磁盘记忆文件：
+
+```
+data/memories/repo/fairygui-packages/{PackageName}.md
+```
+
+按照 `fairygui-memory-write.instructions.md` 中的模板，内容包含：包 ID、导出组件、图片资源、跨包依赖、切片是否需美术补充、技术备注。
 
 ### 步骤 5：校验生成质量
 
@@ -84,5 +110,5 @@ validate fairygui package {DesignName}
 - [ ] 命名规范无 ERROR
 - [ ] package.xml 中所有 src ID 有效
 - [ ] 无远程 URL 图片引用（fileName 不含 `https://`）
-- [ ] Common 包组件正确复用（无重复实现遮罩/红点/按钮）
-- [ ] 校验报告无 ERROR
+- [ ] Common 包组件正确复用（无重复实现遮罩/红点/按钮）- [ ] 切片已处理：`total_slices>0` 时已下载到 `images/`；`=0` 时效果图已复制且已告知用户
+- [ ] `data/memories/repo/fairygui-packages/{Name}.md` 已创建- [ ] 校验报告无 ERROR

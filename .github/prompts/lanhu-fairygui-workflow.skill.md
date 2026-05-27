@@ -11,6 +11,7 @@ description: "**WORKFLOW SKILL** — 执行蓝湖设计稿完整转换为 FairyG
 - "把蓝湖设计稿转成 FairyGUI"
 - "将设计稿生成 Package"
 - "convert design to fairygui"
+- "帮我分析蓝湖设计连接"
 - 提供蓝湖 URL + 要求生成 XML 工程
 
 ---
@@ -49,7 +50,9 @@ R-001 中文命名 ERROR → 必须修复，不可跳过
 ↓
 若仅有 WARN → 询问用户，用户确认后继续
 ↓
-记忆文件不存在 → 先运行 FairyGUI Package Reviewer
+INDEX.md 或 Common.md 不存在于 data/memories/repo/fairygui-packages/
+  → 🚫 阻断，先运行 FairyGUI Package Reviewer 全量扫描
+  → 等待记忆文件生成完成后方可继续
 ↓
 校验 ERROR → 触发自动修复（仅安全类型）
 ```
@@ -90,6 +93,7 @@ result = mcp_lanhu_lanhu_get_fairygui_project(
 | 主确认按钮 | BCommonConfirmBtn | `klomijo62q` | `new/Button/BCommonConfirmBtn.xml` |
 | 次取消按钮 | BCommonCanelBtn | `klomijo62o` | `new/Button/BCommonCanelBtn.xml` |
 | 通用图标按钮 | CommonButton | `md0644c` | `button/CommonButton.xml` |
+| 弹窗/界面关闭按钮（内置×图标） | CommonCloseButton | `z9gmijo62h` | `new/Button/CommonCloseButton.xml` |
 | 通用弹窗框架 | CommonFrame4 | 查 Common.md | `new/Frame/CommonFrame4.xml` |
 | 确认弹窗 | AlertView | 查 Common.md | `AlertView.xml` |
 
@@ -106,3 +110,6 @@ result = mcp_lanhu_lanhu_get_fairygui_project(
 | fileName 含 https:// | 图片未本地化 | 下载图片到 `res/` 目录，更新 fileName |
 | 缺少 dependencies 声明 | 跨包引用但未声明依赖 | 在 `<publish>` 追加 Common 包 ID `yez16kc6` |
 | 转换后组件尺寸错位 | 设计稿坐标系差异 | 检查蓝湖 schema 中 `left/top` 是否为绝对坐标 |
+| FairyGUI 编辑器打开 NullReferenceException | XML 使用了无效的 `<input>` 标签 | 改用 `<text input="true" prompt="...">`, 多行输入不加 `singleLine="true"` |
+| 切片下载为空（total_slices=0） | 蓝湖未导出切片 | 调用 `get_ai_analyze_design_result` 后从 `data/lanhu_designs/{pid}/{name}.png` 缓存复制到包的 `效果图/` 目录 |
+| 生成后无 Package 记忆文件 | 未触发记忆写入步骤 | 对每个新建 Package，在 `data/memories/repo/fairygui-packages/{Name}.md` 创建记忆文件 |
