@@ -1,0 +1,15 @@
+{
+  "servers": {
+    // stdio 模式：Copilot 自动拉起进程，Cookie 从项目根目录的 .env 文件自动读取
+    "lanhu": {
+      "type": "stdio",
+      "command": "C:\\Python311\\python3.exe",
+      "args": [
+        "${workspaceFolder}\\lanhu_mcp_server.py"
+      ],
+      "env": {
+        "MCP_TRANSPORT": "stdio"
+      }
+    }
+  }
+}
