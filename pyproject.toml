@@ -107,7 +107,7 @@ known_first_party = ["lanhu_mcp_server"]
 
 [tool.pytest.ini_options]
 minversion = "7.0"
-addopts = "-ra -q --strict-markers --cov=. --cov-report=term-missing --cov-report=html"
+addopts = "-ra -q --strict-markers --cov=. --cov-report=term-missing"
 testpaths = ["tests"]
 python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
