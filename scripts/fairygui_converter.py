@@ -20,6 +20,8 @@ FairyGUI 6.x 工程生成器
 import re
 import uuid
 import math
+import hashlib
+import os
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Optional
@@ -81,13 +83,16 @@ def rgba_to_fairygui(css_color: str) -> Optional[str]:
 # ──────────────────────────────────────────────────────────────────────────────
 
 class NodeIdGenerator:
-    """全局递增 ID 生成器，输出 n1, n2, n3..."""
+    """全局随机 ID 生成器，输出 5 位 MD5 十六进制码（冲突时自动重试）。"""
     def __init__(self):
-        self._counter = 0
+        self._used: set = set()
 
     def next(self) -> str:
-        self._counter += 1
-        return f'n{self._counter}'
+        while True:
+            uid = hashlib.md5(os.urandom(16)).hexdigest()[:5]
+            if uid not in self._used:
+                self._used.add(uid)
+                return uid
 
 
 # ──────────────────────────────────────────────────────────────────────────────
