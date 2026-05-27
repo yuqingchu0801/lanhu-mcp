@@ -65,6 +65,10 @@ from playwright.async_api import async_playwright
 
 # FairyGUI 转换器（可选模块，不存在时禁用相关 Tool）
 try:
+    import sys as _sys
+    _scripts_dir = str(Path(__file__).parent / 'scripts')
+    if _scripts_dir not in _sys.path:
+        _sys.path.insert(0, _scripts_dir)
     from fairygui_converter import (
         convert_lanhu_to_fairygui_project,
         convert_sketch_to_fairygui_project,

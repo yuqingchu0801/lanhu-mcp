@@ -1,5 +1,7 @@
 @echo off
 setlocal enabledelayedexpansion
+REM 切换到项目根目录
+cd /d "%~dp0.."
 chcp 65001 >nul 2>&1
 REM 蓝湖 MCP Docker 快速部署脚本 (Windows)
 REM 适配 Docker Desktop v20.10+ (docker compose 无横线)

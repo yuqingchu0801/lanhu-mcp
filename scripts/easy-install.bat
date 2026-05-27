@@ -4,6 +4,8 @@ REM 蓝湖 MCP Server - 超级简单安装脚本 (Windows)
 REM 专为小白用户设计，交互式引导安装
 
 setlocal enabledelayedexpansion
+REM 切换到项目根目录
+cd /d "%~dp0.."
 
 cls
 

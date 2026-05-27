@@ -1,5 +1,7 @@
 @echo off
 setlocal enabledelayedexpansion
+REM 切换到项目根目录
+cd /d "%~dp0.."
 chcp 65001 >nul 2>&1  :: 强制切换控制台编码为 UTF-8
 powershell -Command "$OutputEncoding = [console]::InputEncoding = [console]::OutputEncoding = New-Object System.Text.UTF8Encoding" >nul 2>&1
 REM 蓝湖 MCP 服务器快速启动脚本（Windows）

@@ -5,6 +5,9 @@
 
 set -e
 
+# 切换到项目根目录
+cd "$(dirname "$0")/.." 
+
 echo "🚀 蓝湖 MCP Server - Docker 部署助手"
 echo "======================================"
 echo ""
