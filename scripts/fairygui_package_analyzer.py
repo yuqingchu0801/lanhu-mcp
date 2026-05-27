@@ -6,14 +6,14 @@ FairyGUI Package 批量分析器
 
 用法：
     python scripts/fairygui_package_analyzer.py
-    python scripts/fairygui_package_analyzer.py --assets data/uiProject/assets --output memories/repo/fairygui-packages
+    python scripts/fairygui_package_analyzer.py --assets data/uiProject/assets --output data/memories/repo/fairygui-packages
     python scripts/fairygui_package_analyzer.py --package Common   # 只分析指定包
     python scripts/fairygui_package_analyzer.py --json             # 同时生成 JSON 格式
 
 输出：
-    memories/repo/fairygui-packages/{PackageName}.md    每个 Package 的 Markdown 记忆文件
-    memories/repo/fairygui-packages/INDEX.md            包汇总索引文件
-    memories/repo/fairygui-packages/{PackageName}.json  (可选) 机器可读的 JSON 格式
+    data/memories/repo/fairygui-packages/{PackageName}.md    每个 Package 的 Markdown 记忆文件
+    data/memories/repo/fairygui-packages/INDEX.md            包汇总索引文件
+    data/memories/repo/fairygui-packages/{PackageName}.json  (可选) 机器可读的 JSON 格式
 """
 
 import argparse
@@ -543,8 +543,8 @@ def main():
     )
     parser.add_argument(
         '--output',
-        default='memories/repo/fairygui-packages',
-        help='记忆文件输出目录（默认：memories/repo/fairygui-packages）'
+        default='data/memories/repo/fairygui-packages',
+        help='记忆文件输出目录（默认：data/memories/repo/fairygui-packages）'
     )
     parser.add_argument(
         '--package',

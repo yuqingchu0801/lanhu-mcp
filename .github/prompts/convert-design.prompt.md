@@ -48,7 +48,7 @@ govern design ${input:designUrl}
 review fairygui packages
 ```
 
-重点检查 `memories/repo/fairygui-packages/Common.md` 和 `INDEX.md` 是否存在且有效。
+重点检查 `data/memories/repo/fairygui-packages/Common.md` 和 `INDEX.md` 是否存在且有效。
 
 ### 步骤 3：获取设计图层数据
 

@@ -26,7 +26,7 @@ tools:
 ```bash
 python scripts/fairygui_package_analyzer.py \
   --assets data/uiProject/assets \
-  --output memories/repo/fairygui-packages
+  --output data/memories/repo/fairygui-packages
 ```
 
 ### 手动单包
@@ -58,5 +58,5 @@ review fairygui packages
 ## 输出
 
 更新以下记忆文件：
-- `memories/repo/fairygui-packages/INDEX.md` — 包索引快速查询表
-- `memories/repo/fairygui-packages/{PackageName}.md` — 每个包的详细组件清单
+- `data/memories/repo/fairygui-packages/INDEX.md` — 包索引快速查询表
+- `data/memories/repo/fairygui-packages/{PackageName}.md` — 每个包的详细组件清单
